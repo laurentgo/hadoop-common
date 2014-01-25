@@ -23,12 +23,15 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.Random;
+import java.util.zip.Checksum;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FSOutputSummer;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.util.DataChecksum;
 import org.junit.Test;
 
 /**
@@ -137,23 +140,59 @@ public class TestFSOutputSummer {
   }
   
   @Test
-  public void TestDFSCheckSumType() throws Exception{
-    Configuration conf = new HdfsConfiguration();
-    conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
-    conf.setInt(DFSConfigKeys.DFS_BYTES_PER_CHECKSUM_KEY, BYTES_PER_CHECKSUM);
-    conf.set(DFSConfigKeys.DFS_CHECKSUM_TYPE_KEY, "NULL");
-    MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf)
-                                               .numDataNodes(NUM_OF_DATANODES)
-                                               .build();
-    fileSys = cluster.getFileSystem();
-    try {
-      Path file = new Path("try.dat");
-      Random rand = new Random(seed);
-      rand.nextBytes(expected);
-      writeFile1(file);
-    } finally {
-      fileSys.close();
-      cluster.shutdown();
-    }
+  public void testDFSChecksumType() throws Exception{
+    doTestDFSCheckSumType(
+        new byte[] {3, -90, 34, 21, 69, -5, -104, 69, 72, -53, -48, 82, -72, 118, 103, 49},
+        DataChecksum.newDataChecksum(DataChecksum.Type.CRC32C, BYTES_PER_CHECKSUM), 
+        DataChecksum.Type.CRC32C.size);
+    
+    doTestDFSCheckSumType(
+        new byte[] {3, -90, 69, -5, 72, -53, -72, 118},
+        DataChecksum.newDataChecksum(DataChecksum.Type.CRC32C, BYTES_PER_CHECKSUM), 
+        DataChecksum.Type.CRC32C.size / 2);
+    
+    doTestDFSCheckSumType(
+        new byte[] {},
+        DataChecksum.newDataChecksum(DataChecksum.Type.NULL, BYTES_PER_CHECKSUM), 
+        DataChecksum.Type.NULL.size);
+  }
+  
+  private void doTestDFSCheckSumType(final byte[] expectedChecksum, 
+      final Checksum checksum, final int checksumSize) throws Exception{
+    final byte[] actualChecksum = new byte[expectedChecksum.length];
+    
+    Random rand = new Random(seed);
+    rand.nextBytes(expected);
+    
+    FSOutputSummer summer = new FSOutputSummer(checksum, BYTES_PER_CHECKSUM, checksumSize) {
+      int pos = 0;
+      int posChecksum = 0;
+      @Override
+      protected void writeChunk(byte[] b, int offset, int len, byte[] checksum)
+          throws IOException {
+        assertEquals(checksumSize, checksum.length);
+        
+        System.arraycopy(b, offset, actual, pos, len);
+        pos += len;
+        
+        System.arraycopy(checksum, 0, actualChecksum, posChecksum, checksumSize);
+        posChecksum += checksumSize;
+      }
+      
+      @Override
+      protected void checkClosed() throws IOException { }
+      
+      @Override
+      public void close() throws IOException {
+        flushBuffer();
+        super.close();
+      }
+    };
+    
+    summer.write(expected);
+    summer.close();
+    
+    checkAndEraseData(actual, 0, expected, "Read Sanity Test");
+    checkAndEraseData(actualChecksum, 0, expectedChecksum, "Checksum Sanity Test");
   }
 }

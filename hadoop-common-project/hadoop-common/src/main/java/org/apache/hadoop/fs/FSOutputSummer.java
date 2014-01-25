@@ -167,11 +167,11 @@ abstract public class FSOutputSummer extends OutputStream {
    */
   private void writeChecksumChunk(byte b[], int off, int len, boolean keep)
   throws IOException {
-    int tempChecksum = (int)sum.getValue();
+    long tempChecksum = sum.getValue();
     if (!keep) {
       sum.reset();
     }
-    int2byte(tempChecksum, checksum);
+    value2byte(tempChecksum, checksum);
     writeChunk(b, off, len, checksum);
   }
 
@@ -179,16 +179,27 @@ abstract public class FSOutputSummer extends OutputStream {
    * Converts a checksum integer value to a byte stream
    */
   static public byte[] convertToByteStream(Checksum sum, int checksumSize) {
-    return int2byte((int)sum.getValue(), new byte[checksumSize]);
+    return value2byte(sum.getValue(), new byte[checksumSize]);
   }
 
-  static byte[] int2byte(int integer, byte[] bytes) {
-    if (bytes.length != 0) {
-      bytes[0] = (byte) ((integer >>> 24) & 0xFF);
-      bytes[1] = (byte) ((integer >>> 16) & 0xFF);
-      bytes[2] = (byte) ((integer >>> 8) & 0xFF);
-      bytes[3] = (byte) ((integer >>> 0) & 0xFF);
-      return bytes;
+  static byte[] value2byte(long value, byte[] bytes) {
+    switch(bytes.length) {
+    case 8:
+      bytes[7] = (byte) ((value >>> 56) & 0xFF);
+    case 7:
+      bytes[6] = (byte) ((value >>> 48) & 0xFF);
+    case 6:
+      bytes[5] = (byte) ((value >>> 40) & 0xFF);
+    case 5:
+      bytes[4] = (byte) ((value >>> 32) & 0xFF);
+    case 4:
+      bytes[3] = (byte) ((value >>> 0) & 0xFF);
+    case 3:
+      bytes[2] = (byte) ((value >>> 8) & 0xFF);
+    case 2:
+      bytes[1] = (byte) ((value >>> 16) & 0xFF);
+    case 1:
+      bytes[0] = (byte) ((value >>> 24) & 0xFF);
     }
     return bytes;
   }
