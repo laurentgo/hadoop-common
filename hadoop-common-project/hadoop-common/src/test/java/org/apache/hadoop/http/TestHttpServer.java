@@ -359,6 +359,7 @@ public class TestHttpServer extends HttpServerFunctionalTest {
     // Authorization is disabled by default
     conf.set(HttpServer.FILTER_INITIALIZER_PROPERTY,
         DummyFilterInitializer.class.getName());
+    conf.setInt(HttpServer.HTTP_MAX_STOP_MILLIS, 1000);
     conf.set(CommonConfigurationKeys.HADOOP_SECURITY_GROUP_MAPPING,
         MyGroupsProvider.class.getName());
     Groups.getUserToGroupsMappingService(conf);
@@ -396,6 +397,7 @@ public class TestHttpServer extends HttpServerFunctionalTest {
         true);
     conf.set(HttpServer.FILTER_INITIALIZER_PROPERTY,
         DummyFilterInitializer.class.getName());
+    conf.setInt(HttpServer.HTTP_MAX_STOP_MILLIS, 1000);
 
     conf.set(CommonConfigurationKeys.HADOOP_SECURITY_GROUP_MAPPING,
         MyGroupsProvider.class.getName());

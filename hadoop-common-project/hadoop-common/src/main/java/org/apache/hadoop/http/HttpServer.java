@@ -104,6 +104,7 @@ public class HttpServer implements FilterContainer {
   static final String FILTER_INITIALIZER_PROPERTY
       = "hadoop.http.filter.initializers";
   static final String HTTP_MAX_THREADS = "hadoop.http.max.threads";
+  static final String HTTP_MAX_STOP_MILLIS = "hadoop.http.max.stop.millis";
 
   // The ServletContext attribute where the daemon Configuration
   // gets stored.
@@ -477,10 +478,12 @@ public class HttpServer implements FilterContainer {
     Preconditions.checkNotNull(webAppContext);
 
     int maxThreads = conf.getInt(HTTP_MAX_THREADS, -1);
+    int maxStopMillis = conf.getInt(HTTP_MAX_STOP_MILLIS, 0);
     // If HTTP_MAX_THREADS is not configured, QueueThreadPool() will use the
     // default value (currently 250).
     QueuedThreadPool threadPool = maxThreads == -1 ? new QueuedThreadPool()
         : new QueuedThreadPool(maxThreads);
+    threadPool.setMaxStopTimeMs(maxStopMillis);
     threadPool.setDaemon(true);
     webServer.setThreadPool(threadPool);
 
