@@ -121,7 +121,7 @@
         <configuration>
           <forkMode>always</forkMode>
           <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
-          <argLine>-Xmx1024m -Djava.awt.headless=true</argLine>
+          <argLine>-Xmx1024m</argLine>
           <includes>
             <include>**/Test*.java</include>
           </includes>
