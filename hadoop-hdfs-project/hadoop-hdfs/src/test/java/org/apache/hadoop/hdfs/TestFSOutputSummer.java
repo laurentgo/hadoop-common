@@ -103,6 +103,8 @@ public class TestFSOutputSummer {
     stm.readFully(0, actual);
     checkAndEraseData(actual, 0, expected, "Read Sanity Test");
     stm.close();
+    // do a sanity check. Get the file checksum
+    fileSys.getFileChecksum(name);
   }
 
   private void cleanupFile(Path name) throws IOException {
