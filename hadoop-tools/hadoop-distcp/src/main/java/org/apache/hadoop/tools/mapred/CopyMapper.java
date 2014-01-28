@@ -21,6 +21,7 @@ package org.apache.hadoop.tools.mapred;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -192,6 +193,7 @@ public class CopyMapper extends Mapper<Text, FileStatus, Text, Text> {
 
     try {
       FileStatus sourceCurrStatus;
+      
       FileSystem sourceFS;
       try {
         sourceFS = sourcePath.getFileSystem(conf);
@@ -219,6 +221,8 @@ public class CopyMapper extends Mapper<Text, FileStatus, Text, Text> {
         return;
       }
 
+      FileChecksum sourceCurrChecksum = sourceFS.getFileChecksum(sourcePath);
+
       if (skipFile(sourceFS, sourceCurrStatus, target)) {
         LOG.info("Skipping copy of " + sourceCurrStatus.getPath()
                  + " to " + target);
@@ -226,7 +230,7 @@ public class CopyMapper extends Mapper<Text, FileStatus, Text, Text> {
         context.write(null, new Text("SKIP: " + sourceCurrStatus.getPath()));
       }
       else {
-        copyFileWithRetry(description, sourceCurrStatus, target, context,
+        copyFileWithRetry(description, sourceCurrStatus, sourceCurrChecksum, target, context,
                           fileAttributes);
       }
 
@@ -250,13 +254,14 @@ public class CopyMapper extends Mapper<Text, FileStatus, Text, Text> {
   }
 
   private void copyFileWithRetry(String description, FileStatus sourceFileStatus,
-               Path target, Context context,
+               FileChecksum sourceFileChecksum, Path target, Context context,
                EnumSet<DistCpOptions.FileAttribute> fileAttributes) throws IOException {
 
     long bytesCopied;
     try {
       bytesCopied = (Long)new RetriableFileCopyCommand(skipCrc, description)
-                       .execute(sourceFileStatus, target, context, fileAttributes);
+                       .execute(sourceFileStatus, sourceFileChecksum, target, context, 
+                               fileAttributes);
     } catch (Exception e) {
       context.setStatus("Copy Failure: " + sourceFileStatus.getPath());
       throw new IOException("File copy failed: " + sourceFileStatus.getPath() +

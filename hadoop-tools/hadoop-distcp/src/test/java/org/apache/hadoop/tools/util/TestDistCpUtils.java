@@ -93,6 +93,10 @@ public class TestDistCpUtils {
     attributes.add(FileAttribute.PERMISSION);
     Assert.assertEquals(DistCpUtils.packAttributes(attributes), "RBUGP");
     Assert.assertEquals(attributes, DistCpUtils.unpackAttributes("RBUGP"));
+
+    attributes.add(FileAttribute.CHECKSUM);
+    Assert.assertEquals(DistCpUtils.packAttributes(attributes), "RBUGPC");
+    Assert.assertEquals(attributes, DistCpUtils.unpackAttributes("RBUGPC"));
   }
 
   @Test

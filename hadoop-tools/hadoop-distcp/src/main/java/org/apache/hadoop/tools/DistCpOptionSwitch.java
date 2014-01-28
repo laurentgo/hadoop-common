@@ -39,13 +39,13 @@ public enum DistCpOptionSwitch {
    * Default behavior with -p, is to preserve replication,
    * block size, user, group and permission on the target file
    *
-   * If any of the optional switches are present among rbugp, then
+   * If any of the optional switches are present among rbugpc, then
    * only the corresponding file attribute is preserved
    *
    */
   PRESERVE_STATUS(DistCpConstants.CONF_LABEL_PRESERVE_STATUS,
-      new Option("p", true, "preserve status (rbugp)" +
-          "(replication, block-size, user, group, permission)")),
+      new Option("p", true, "preserve status (rbugpc)" +
+          "(replication, block-size, user, group, permission, checksum)")),
 
   /**
    * Update target location by copying only files that are missing

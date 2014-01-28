@@ -21,8 +21,11 @@ package org.apache.hadoop.tools.mapred;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CreateFlag;
+import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Options.ChecksumOpt;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -40,6 +43,8 @@ import org.apache.hadoop.tools.util.DistCpUtils;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import com.google.common.base.Objects;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -119,7 +124,7 @@ public class TestCopyMapper {
     mkdirs(SOURCE_PATH + "/2/3/4");
     mkdirs(SOURCE_PATH + "/2/3");
     mkdirs(SOURCE_PATH + "/5");
-    touchFile(SOURCE_PATH + "/5/6", true);
+    touchFile(SOURCE_PATH + "/5/6", true, true);
     mkdirs(SOURCE_PATH + "/7");
     mkdirs(SOURCE_PATH + "/7/8");
     touchFile(SOURCE_PATH + "/7/8/9");
@@ -134,10 +139,10 @@ public class TestCopyMapper {
   }
 
   private static void touchFile(String path) throws Exception {
-    touchFile(path, false);
+    touchFile(path, false, true);
   }
 
-  private static void touchFile(String path, boolean createMultipleBlocks) throws Exception {
+  private static void touchFile(String path, boolean createMultipleBlocks, boolean enableChecksum) throws Exception {
     final long NON_DEFAULT_BLOCK_SIZE = 4096;
     FileSystem fs;
     DataOutputStream outputStream = null;
@@ -146,9 +151,10 @@ public class TestCopyMapper {
       final Path qualifiedPath = new Path(path).makeQualified(fs.getUri(),
                                                       fs.getWorkingDirectory());
       final long blockSize = createMultipleBlocks? NON_DEFAULT_BLOCK_SIZE : fs.getDefaultBlockSize(qualifiedPath) * 2;
-      outputStream = fs.create(qualifiedPath, true, 0,
+      outputStream = fs.create(qualifiedPath, FsPermission.getFileDefault(),
+              EnumSet.of(CreateFlag.CREATE, CreateFlag.OVERWRITE), 0,
               (short)(fs.getDefaultReplication(qualifiedPath)*2),
-              blockSize);
+              blockSize, null, enableChecksum ? null : ChecksumOpt.createDisabled());
       byte[] bytes = new byte[DEFAULT_FILE_SIZE];
       outputStream.write(bytes);
       long fileSize = DEFAULT_FILE_SIZE;
@@ -759,6 +765,61 @@ public class TestCopyMapper {
     }
     catch (Exception e) {
       Assert.assertTrue("Unexpected exception: " + e.getMessage(), false);
+      e.printStackTrace();
+    }
+  }
+  
+  @Test
+  public void testPreserveChecksum() {
+    testPreserveChecksumImpl(true);
+    testPreserveChecksumImpl(false);
+  }
+
+  private void testPreserveChecksumImpl(boolean preserve){
+    try {
+
+      deleteState();
+
+      FileSystem fs = cluster.getFileSystem();
+      CopyMapper copyMapper = new CopyMapper();
+      StubContext stubContext = new StubContext(getConfiguration(), null, 0);
+      Mapper<Text, FileStatus, Text, Text>.Context context
+              = stubContext.getContext();
+
+      Configuration configuration = context.getConfiguration();
+      EnumSet<DistCpOptions.FileAttribute> fileAttributes
+              = EnumSet.noneOf(DistCpOptions.FileAttribute.class);
+      if (preserve) {
+        fileAttributes.add(DistCpOptions.FileAttribute.CHECKSUM);
+      }
+      configuration.set(DistCpOptionSwitch.PRESERVE_STATUS.getConfigLabel(),
+              DistCpUtils.packAttributes(fileAttributes));
+
+      final Path sourcePath = new Path(SOURCE_PATH + "/nochecksum");
+      final Path targetPath = new Path(TARGET_PATH + "/nochecksum");
+     
+      touchFile(SOURCE_PATH + "/nochecksum", false, false);
+
+      copyMapper.setup(context);
+      
+      copyMapper.map(new Text("/nochecksum"),
+          fs.getFileStatus(sourcePath),
+          context);
+      
+      if (preserve) {
+        for (Text value : stubContext.getWriter().values()) {
+          Assert.assertTrue(value.toString() + " is not skipped", value.toString().startsWith("FAIL:"));
+        }
+      }
+      
+      final FileChecksum sourceChecksum = fs.getFileChecksum(sourcePath);
+      final FileChecksum targetChecksum = fs.getFileChecksum(targetPath);
+      
+      Assert.assertEquals(Objects.equal(sourceChecksum, targetChecksum), preserve);
+    }
+    catch (Exception e) {
+      Assert.assertTrue("Unexpected exception: " + e.getMessage(),
+              !preserve);
       e.printStackTrace();
     }
   }

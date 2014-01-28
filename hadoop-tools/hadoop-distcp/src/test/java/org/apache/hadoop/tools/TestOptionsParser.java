@@ -397,6 +397,7 @@ public class TestOptionsParser {
     Assert.assertFalse(options.shouldPreserve(FileAttribute.PERMISSION));
     Assert.assertFalse(options.shouldPreserve(FileAttribute.USER));
     Assert.assertFalse(options.shouldPreserve(FileAttribute.GROUP));
+    Assert.assertFalse(options.shouldPreserve(FileAttribute.CHECKSUM));
 
     options = OptionsParser.parse(new String[] {
         "-p",
@@ -408,6 +409,8 @@ public class TestOptionsParser {
     Assert.assertTrue(options.shouldPreserve(FileAttribute.PERMISSION));
     Assert.assertTrue(options.shouldPreserve(FileAttribute.USER));
     Assert.assertTrue(options.shouldPreserve(FileAttribute.GROUP));
+    Assert.assertTrue(options.shouldPreserve(FileAttribute.CHECKSUM));
+
 
     options = OptionsParser.parse(new String[] {
         "-p",
@@ -418,6 +421,8 @@ public class TestOptionsParser {
     Assert.assertTrue(options.shouldPreserve(FileAttribute.PERMISSION));
     Assert.assertTrue(options.shouldPreserve(FileAttribute.USER));
     Assert.assertTrue(options.shouldPreserve(FileAttribute.GROUP));
+    Assert.assertTrue(options.shouldPreserve(FileAttribute.CHECKSUM));
+
 
     options = OptionsParser.parse(new String[] {
         "-pbr",
@@ -429,9 +434,11 @@ public class TestOptionsParser {
     Assert.assertFalse(options.shouldPreserve(FileAttribute.PERMISSION));
     Assert.assertFalse(options.shouldPreserve(FileAttribute.USER));
     Assert.assertFalse(options.shouldPreserve(FileAttribute.GROUP));
+    Assert.assertFalse(options.shouldPreserve(FileAttribute.CHECKSUM));
+
 
     options = OptionsParser.parse(new String[] {
-        "-pbrgup",
+        "-pbrgupc",
         "-f",
         "hdfs://localhost:8020/source/first",
         "hdfs://localhost:8020/target/"});
@@ -440,6 +447,8 @@ public class TestOptionsParser {
     Assert.assertTrue(options.shouldPreserve(FileAttribute.PERMISSION));
     Assert.assertTrue(options.shouldPreserve(FileAttribute.USER));
     Assert.assertTrue(options.shouldPreserve(FileAttribute.GROUP));
+    Assert.assertTrue(options.shouldPreserve(FileAttribute.CHECKSUM));
+
 
     options = OptionsParser.parse(new String[] {
         "-p",
@@ -452,7 +461,7 @@ public class TestOptionsParser {
       attribIterator.next();
       i++;
     }
-    Assert.assertEquals(i, 5);
+    Assert.assertEquals(i, 6);
 
     try {
       OptionsParser.parse(new String[] {

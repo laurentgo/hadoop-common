@@ -24,6 +24,8 @@ import org.apache.hadoop.tools.util.DistCpUtils;
 import org.apache.hadoop.tools.DistCpOptions.*;
 import org.apache.hadoop.tools.DistCpConstants;
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.Options.ChecksumOpt;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.IOUtils;
@@ -75,18 +77,19 @@ public class RetriableFileCopyCommand extends RetriableCommand {
   @SuppressWarnings("unchecked")
   @Override
   protected Object doExecute(Object... arguments) throws Exception {
-    assert arguments.length == 4 : "Unexpected argument list.";
+    assert arguments.length == 5 : "Unexpected argument list.";
     FileStatus source = (FileStatus)arguments[0];
+    FileChecksum checksum = (FileChecksum) arguments[1];
     assert !source.isDirectory() : "Unexpected file-status. Expected file.";
-    Path target = (Path)arguments[1];
-    Mapper.Context context = (Mapper.Context)arguments[2];
+    Path target = (Path)arguments[2];
+    Mapper.Context context = (Mapper.Context)arguments[3];
     EnumSet<FileAttribute> fileAttributes
-            = (EnumSet<FileAttribute>)arguments[3];
-    return doCopy(source, target, context, fileAttributes);
+            = (EnumSet<FileAttribute>)arguments[4];
+    return doCopy(source, checksum, target, context, fileAttributes);
   }
 
-  private long doCopy(FileStatus sourceFileStatus, Path target,
-                      Mapper.Context context,
+  private long doCopy(FileStatus sourceFileStatus, FileChecksum sourceFileChecksum, 
+                      Path target, Mapper.Context context,
                       EnumSet<FileAttribute> fileAttributes)
           throws IOException {
 
@@ -102,7 +105,7 @@ public class RetriableFileCopyCommand extends RetriableCommand {
       FileSystem sourceFS = sourceFileStatus.getPath().getFileSystem(
               configuration);
       long bytesRead = copyToTmpFile(tmpTargetPath, targetFS, sourceFileStatus,
-                                     context, fileAttributes);
+                                     sourceFileChecksum, context, fileAttributes);
 
       compareFileLengths(sourceFileStatus, tmpTargetPath, configuration, bytesRead);
       //At this point, src&dest lengths are same. if length==0, we skip checksum
@@ -119,13 +122,15 @@ public class RetriableFileCopyCommand extends RetriableCommand {
   }
 
   private long copyToTmpFile(Path tmpTargetPath, FileSystem targetFS,
-                             FileStatus sourceFileStatus, Mapper.Context context,
-                             EnumSet<FileAttribute> fileAttributes)
+                             FileStatus sourceFileStatus, FileChecksum sourceFileChecksum, 
+                             Mapper.Context context, EnumSet<FileAttribute> fileAttributes)
                              throws IOException {
     OutputStream outStream = new BufferedOutputStream(targetFS.create(
-            tmpTargetPath, true, BUFFER_SIZE,
+            tmpTargetPath, FsPermission.getFileDefault(), 
+            EnumSet.of(CreateFlag.CREATE, CreateFlag.OVERWRITE), BUFFER_SIZE,
             getReplicationFactor(fileAttributes, sourceFileStatus, targetFS, tmpTargetPath),
-            getBlockSize(fileAttributes, sourceFileStatus, targetFS, tmpTargetPath), context));
+            getBlockSize(fileAttributes, sourceFileStatus, targetFS, tmpTargetPath), context,
+            getChecksumOpt(fileAttributes, sourceFileChecksum)));
     return copyBytes(sourceFileStatus, outStream, BUFFER_SIZE, context);
   }
 
@@ -254,6 +259,15 @@ public class RetriableFileCopyCommand extends RetriableCommand {
           FileStatus sourceFile, FileSystem targetFS, Path tmpTargetPath) {
     return fileAttributes.contains(FileAttribute.BLOCKSIZE)?
             sourceFile.getBlockSize() : targetFS.getDefaultBlockSize(tmpTargetPath);
+  }
+  
+  private static ChecksumOpt getChecksumOpt(
+          EnumSet<FileAttribute> fileAttributes,
+          FileChecksum sourceChecksum) {
+    return fileAttributes.contains(FileAttribute.CHECKSUM)
+            ? (sourceChecksum != null ? sourceChecksum.getChecksumOpt() : ChecksumOpt.createDisabled())
+            : null;
+    
   }
 
   /**
