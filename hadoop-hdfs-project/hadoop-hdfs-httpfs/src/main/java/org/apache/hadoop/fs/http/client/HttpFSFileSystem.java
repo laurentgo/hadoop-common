@@ -31,6 +31,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
+import org.apache.hadoop.fs.Options.ChecksumOpt;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.net.NetUtils;
@@ -874,6 +875,11 @@ public class HttpFSFileSystem extends FileSystem
         return StringUtils.hexStringToByte((String) json.get(CHECKSUM_BYTES_JSON));
       }
 
+      @Override
+      public ChecksumOpt getChecksumOpt() {
+        return null;
+      }
+      
       @Override
       public void write(DataOutput out) throws IOException {
         throw new UnsupportedOperationException();

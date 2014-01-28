@@ -88,6 +88,7 @@ public class MD5MD5CRC32FileChecksum extends FileChecksum {
     return DataChecksum.Type.CRC32;
   }
 
+  @Override
   public ChecksumOpt getChecksumOpt() {
     return new ChecksumOpt(getCrcType(), bytesPerCRC);
   }
